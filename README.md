@@ -19,7 +19,9 @@ It answers the questions that come *before* a migration starts:
 | 2. Analyse a running instance | Adobe Best Practices Analyzer, Cloud Acceleration Manager |
 | 3. Fix the code, pattern by pattern | Adobe's [AEM Cloud Migration skill](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/migration-journey/cloud-migration-skill/using-cloud-migration-skill), Dispatcher Converter, AEM Modernization Tools |
 
-Each finding names the Adobe skill pattern or tool that can fix it, where one exists.
+Each finding names the Adobe skill pattern or tool that can fix it, where one exists, and the report ends with a fix plan: ready-to-run prompts for Adobe's skill, with the pattern and file paths filled in.
+
+Tried on a real 6.5 codebase: the assessment flagged a JCR observation listener, and Adobe's skill (plugin `aem-cloud-service` 1.3.1, manual flow) migrated it from the file path alone, moving the heavy work into a Sling Job. It offered three approaches, and picking one took someone who knew the project. That review is the part no tool does for you.
 
 ## How it works
 

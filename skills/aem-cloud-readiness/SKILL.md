@@ -33,9 +33,11 @@ This assessment needs only the Git repository. It doesn't need a running AEM ins
 
    Keep Adobe's own rule severity separate. Many Cloud Service compatibility rules are only `Minor` in Cloud Manager, so the pipeline passes code whose feature is gone. Report both.
 
-6. **Check the deprecated-API deadline.** If rules AEMCS-011 to 013 have findings, state the dates from `rules.md` and how long the team has.
+6. **Ask whether custom code is still needed.** For custom code that duplicates something Cloud Service or the product now does (asset move handling, sitemaps, package clean-up, purge jobs, cache flushing), say so. Deleting it can be cheaper than migrating it, and it changes the estimate.
 
-7. **Write the report** using the template below. Save it as `aem-migration-report.md` in the project root unless the user asks otherwise.
+7. **Check the deprecated-API deadline.** If rules AEMCS-011 to 013 have findings, state the dates from `rules.md` and how long the team has.
+
+8. **Write the report** using the template below. Save it as `aem-migration-report.md` in the project root unless the user asks otherwise.
 
 ## Report template
 
@@ -70,6 +72,9 @@ This assessment needs only the Git repository. It doesn't need a running AEM ins
 - **Effort:** <S/M/L>
 
 <repeat, ordered Blocker → High → Medium → Low>
+
+## Fix plan
+<For each finding with an Adobe skill pattern: the ready-to-run prompt, with the pattern and exact file paths, in a sensible order (quick wins first, one pattern per session). Use the format in "Handing a finding to Adobe's skill" in rules.md. For findings with no pattern, write "manual" and one line on the approach. List separately any custom code that may not be needed on Cloud Service.>
 
 ## Not assessed
 <things that need a running instance or Adobe tooling: content repository size, users and groups, production indexes, integrations, BPA/CAM results. See "Not covered by the scanner" in rules.md.>

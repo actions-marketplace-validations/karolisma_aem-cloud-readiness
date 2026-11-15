@@ -11,13 +11,34 @@ Each rule has these fields:
 - **Impact:** what happens in practice on AEMaaCS. This is the catalogue's own judgment: `Blocker` (stops the pipeline or the feature can't work), `High` (must be fixed before go-live), `Medium` (rework needed, timing flexible), `Low` (advisory).
 - **Adobe rule:** the matching Cloud Manager code-quality rule, with Adobe's type and severity from the [AEMaaCS Custom Code Quality Rules page][cqr], or the Build Analyzer check. `None` means Adobe has no rule for it.
 - **Evidence:** `Documented` means Adobe's docs state the constraint. `Inferred` means it follows from the docs or from field experience, but no Adobe page says it outright. Say so in the report.
-- **Adobe skill:** the pattern in [Adobe's AEM Cloud Migration skill][skill] that can fix the finding, if one exists.
+- **Adobe skill:** the pattern in [Adobe's AEM Cloud Migration skill][skill] that can fix the finding, if one exists. See "Handing a finding to Adobe's skill" below.
 - **Scanner:** what `scripts/scan.py` flags. Every scanner signal is a heuristic, not Adobe text.
 
 Two things to keep in mind:
 
 - **Adobe's severities understate impact.** Most Cloud Service compatibility rules are `Minor` code smells, so the quality step passes code whose feature no longer exists (Classic UI, custom run modes, reverse replication). That's why Impact and Adobe rule are separate fields.
 - **Use the AEMaaCS rules page, not the Cloud Manager (AMS) one.** They list different severities for the same rules.
+
+## Handing a finding to Adobe's skill
+
+Adobe's skill ships in the `aem-cloud-service` plugin of the [Adobe Skills repository](https://github.com/adobe/skills) (Apache-2.0). It has a manual flow that needs no BPA report: name the pattern and the files. In Claude Code:
+
+```
+/plugin marketplace add adobe/skills
+/plugin install aem-cloud-service@adobe-skills
+```
+
+Then, one pattern per session, on a branch or a copy:
+
+```
+Use the migration skill, manual flow, no BPA report: migrate the event listener in core/src/main/java/com/example/MyListener.java
+```
+
+Notes from a first real run (plugin 1.3.1, one event listener, November 2026):
+
+- The skill offered three approaches with trade-offs, including "don't migrate, the product already does this". Choosing between them needs someone who knows the project.
+- It updated the unit tests but didn't run them. Compile and test afterwards.
+- A fixed file can still match a scanner rule when the skill keeps a pattern on purpose. Check the code comment it leaves.
 
 ## Deprecated-API deadline
 
@@ -244,6 +265,8 @@ See [Replication][repl].
 - **Evidence:** Documented as a pattern to migrate. How badly a given listener behaves is inferred: listeners run on every instance and can miss events when an instance restarts.
 - **Adobe skill:** `eventListener`
 - **Scanner:** imports of `javax.jcr.observation.`.
+
+**What to check:** what the listener reacts to. A `ResourceChangeListener` reports a move as a separate "removed" and "added", so code that needs the old and the new path of a moved node can't be converted directly. In that case, keeping a thin JCR listener that only queues a Sling Job is a defensible exception. Record it as one, and say that it goes against Adobe's general guidance. Also ask whether the listener is still needed at all: the product may already do the job (for example, the Assets move wizard updates references).
 
 **Fix:** use a Sling `ResourceChangeListener`, and hand long or must-complete work to a Sling Job.
 
