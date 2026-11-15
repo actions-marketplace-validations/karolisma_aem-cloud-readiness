@@ -102,9 +102,27 @@ Rules 011–013 cover this. Check the dates against the live page before quoting
 - **Adobe rule:** Build Analyzer `configuration-api`
 - **Evidence:** Documented. AEMaaCS writes Java logs to `logs/error.log` only. The `file` and `pattern` properties of logger configs have been ignored since 31 August 2025.
 - **Adobe skill:** none
-- **Scanner:** Sling logger factory configs with a `org.apache.sling.commons.log.file` other than `logs/error.log`, writer configs, and `logback.xml` files.
+- **Scanner:** Sling logger factory configs with a `org.apache.sling.commons.log.file` other than `logs/error.log`, writer configs, a global `LogManager` config and `logback.xml` files. All config formats are checked, including `sling:OsgiConfig` XML.
 
 **Fix:** log everything to `logs/error.log` at the right level. For Splunk, Datadog and similar, declare log forwarding in `logForwarding.yaml` and deploy it with a config pipeline. See [custom log files][kblog] and [Log forwarding][logfwd].
+
+## AEMCS-026: Purge and maintenance as OSGi config
+- **Impact:** Medium
+- **Adobe rule:** None on the quality-rules page
+- **Evidence:** Documented. On AEMaaCS, version, audit-log and workflow purge are declared in a `MaintenanceTasks` YAML file deployed by a config pipeline.
+- **Adobe skill:** none
+- **Scanner:** OSGi configs for `VersionPurgeTask`, `com.adobe.granite.workflow.purge.Scheduler` and `com.adobe.cq.audit.purge.*`.
+
+**Fix:** move the retention settings to the maintenance YAML and remove the OSGi configs. See [Maintenance Tasks][maint].
+
+## AEMCS-027: Mail service configuration
+- **Impact:** Medium
+- **Adobe rule:** None
+- **Evidence:** Documented. Outbound mail ports are closed by default and need advanced networking.
+- **Adobe skill:** none
+- **Scanner:** `com.day.cq.mailer.DefaultMailService` configs.
+
+**Fix:** set up an advanced networking port forward for the SMTP server and use the proxy host variable in the mail service config. Adobe's pages disagree on the allowed `smtp.port` values, so check the current guidance. See the [email service tutorial][mail].
 
 ---
 
@@ -200,12 +218,23 @@ See [Replication][repl].
 
 **Fix:** use Sling Jobs for work that must complete, and make the job resumable.
 
+## AEMCS-028: Run-mode checks in code
+- **Impact:** Medium
+- **Adobe rule:** None
+- **Evidence:** Documented. On AEMaaCS, `getRunModes()` no longer includes the environment type at runtime.
+- **Adobe skill:** none
+- **Scanner:** `getRunModes(` in Java.
+
+**What to check:** checks for `author` or `publish` still work. Checks for an environment (`dev`, `stage`, `prod`) or a custom mode (`local`, `uat`…) don't.
+
+**Fix:** read environment-specific behaviour from OSGi configuration, with values set per environment.
+
 ## AEMCS-023: Native binaries and process execution
 - **Impact:** Blocker
 - **Adobe rule:** Build Analyzer `bundle-nativecode`
 - **Evidence:** Documented
 - **Adobe skill:** none
-- **Scanner:** `Runtime.getRuntime().exec(`, `new ProcessBuilder(`, `System.loadLibrary(`.
+- **Scanner:** `Runtime.getRuntime(`, `new ProcessBuilder(`, `System.loadLibrary(`. `Runtime.getRuntime()` is also used for memory and CPU figures, so check that the code runs a process.
 
 **Fix:** move the work to an external service, for example Asset Compute workers for ImageMagick or FFmpeg-style processing.
 
@@ -249,7 +278,9 @@ See [Replication][repl].
 - **Adobe rule:** `CloudServiceIncompatibleWorkflowProcess` (Bug, Major)
 - **Evidence:** Documented. The list of unsupported step classes is in `workflowSteps.properties` in Adobe's `aem-cloud-migration` repository, not in the docs.
 - **Adobe skill:** `assetApi` (asset API calls only)
-- **Scanner:** `dam/update_asset` workflow models and launchers in package content.
+- **Scanner:** `dam/update_asset` workflow models and launchers in package content. For a model, the finding lists its process steps.
+
+**What to check:** which steps the model has. Product steps for thumbnails, FFmpeg video and metadata are replaced by asset microservices and processing profiles, so the work is configuration. Custom Java steps need the post-processing route below.
 
 **Fix:** move renditions to processing profiles. Supported custom steps can run in a post-processing workflow, configured through `CustomDamWorkflowRunnerImpl` or a folder's auto-start workflow setting. The model must end with the "DAM Update Asset Workflow Completed Process" step. Launchers aren't needed. See [Configure asset microservices][assets].
 
@@ -311,7 +342,10 @@ Check these by hand, or with Adobe's Best Practices Analyzer on a running instan
 - Service users and ACLs that should move to repoinit.
 - The full Dispatcher directive allow-list (run `validator allowlist` from the Dispatcher SDK).
 - Overlapping packages and duplicate OSGi configs (`PackageOverlaps`, `DuplicateOsgiConfigurations`).
-- Mail service, advanced networking and integrations that use JWT service accounts.
+- Advanced networking needs beyond mail, and integrations that use JWT service accounts.
+- Servlets registered by path (they need Dispatcher filter entries).
+- Groovy Console scripts and other admin tooling deployed in packages.
+- Classic commerce (PIM, catalog generator) and other 6.5 add-ons.
 - Forms, Screens, Commerce and Dynamic Media specifics.
 
 [cqr]: https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/using-cloud-manager/test-results/custom-code-quality-rules
@@ -324,6 +358,8 @@ Check these by hand, or with Adobe's Best Practices Analyzer on a running instan
 [build]: https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/using-cloud-manager/create-application-project/build-environment-details
 [kblog]: https://experienceleague.adobe.com/en/docs/experience-cloud-kcs/kbarticles/ka-35915
 [logfwd]: https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/developing/log-forwarding
+[maint]: https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/operations/maintenance
+[mail]: https://experienceleague.adobe.com/en/docs/experience-manager-learn/cloud-service/networking/examples/email-service
 [repl]: https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/operations/replication
 [dev]: https://experienceleague.adobe.com/docs/experience-manager-cloud-service/implementing/developing/development-guidelines.html
 [index]: https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/operations/indexing

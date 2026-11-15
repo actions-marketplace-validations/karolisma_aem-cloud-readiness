@@ -54,8 +54,9 @@ JAVA_PATTERNS = [
      "HTTP client without explicit timeouts"),
     ("AEMCS-017", re.compile(r"org\.apache\.sling\.commons\.scheduler\.|scheduler\.expression"),
      "Sling Commons Scheduler"),
+    ("AEMCS-028", re.compile(r"\bgetRunModes\s*\("), "Run-mode check in code"),
     ("AEMCS-025", imports("javax.jcr.observation."), "JCR observation listener"),
-    ("AEMCS-023", re.compile(r"Runtime\.getRuntime\(\)\.exec\s*\(|new\s+ProcessBuilder\s*\(|System\.loadLibrary\s*\("),
+    ("AEMCS-023", re.compile(r"Runtime\.getRuntime\s*\(|new\s+ProcessBuilder\s*\(|System\.loadLibrary\s*\("),
      "Native binary or process execution"),
 ]
 
@@ -138,13 +139,18 @@ def scan_xml(path, root, out, dirpath, name):
     p = norm(path)
     if "sling:OsgiConfig" in text and config_folder(dirpath):
         out.append(finding("AEMCS-002", path, root, detail="OSGi config as sling:OsgiConfig node"))
+        scan_osgi_pid(path, root, out, name, text)
     if "oak:QueryIndexDefinition" in text:
         scan_index_definitions(text, path, root, out)
     if 'jcr:primaryType="cq:Dialog"' in text or name in ("dialog.xml", "design_dialog.xml"):
         out.append(finding("AEMCS-009", path, root, detail="Classic UI dialog"))
     if "update_asset" in text or "update_asset" in p:
         if "/workflow" in p or "cq:WorkflowModel" in text or "cq:WorkflowLauncher" in text:
-            out.append(finding("AEMCS-008", path, root, detail="DAM Update Asset workflow customisation"))
+            steps = sorted({m.rsplit(".", 1)[-1] for m in re.findall(r'PROCESS="([^"]+)"', text)})
+            detail = "DAM Update Asset workflow customisation"
+            if steps:
+                detail += ". Steps: " + ", ".join(steps)
+            out.append(finding("AEMCS-008", path, root, detail=detail))
     if 'jcr:primaryType="cq:Template"' in text and "/jcr_root/apps/" in p:
         out.append(finding("AEMCS-021", path, root, detail="Static template under /apps"))
     if 'sling:resourceSuperType="foundation/components/' in text:
@@ -157,17 +163,33 @@ def scan_xml(path, root, out, dirpath, name):
         out.append(finding("AEMCS-014", path, root, detail="uber-jar dependency"))
 
 
+LOG_FILE = re.compile(r"org\.apache\.sling\.commons\.log\.file\"?\s*[:=]\s*\"?([^\"\s,}]+)")
+PURGE_PIDS = ("com.day.cq.wcm.core.impl.VersionPurgeTask", "com.adobe.granite.workflow.purge.Scheduler",
+              "com.adobe.cq.audit.purge.")
+
+
+def scan_osgi_pid(path, root, out, name, text):
+    """Checks keyed on the OSGi PID in the file name, whatever the config format."""
+    if "LogManager.factory.writer" in name:
+        out.append(finding("AEMCS-020", path, root, detail="Custom log writer config"))
+    elif "LogManager.factory.config" in name:
+        m = LOG_FILE.search(text)
+        if m and m.group(1) != "logs/error.log":
+            out.append(finding("AEMCS-020", path, root, detail=f"Custom log file: {m.group(1)}"))
+    elif name.startswith("org.apache.sling.commons.log.LogManager."):
+        out.append(finding("AEMCS-020", path, root, detail="Global LogManager config"))
+    if name.startswith(PURGE_PIDS):
+        out.append(finding("AEMCS-026", path, root, detail="Purge or maintenance config as OSGi config"))
+    if name.startswith("com.day.cq.mailer.DefaultMailService"):
+        out.append(finding("AEMCS-027", path, root, detail="Mail service config"))
+
+
 def scan_osgi_file(path, root, out, dirpath, name):
     if not config_folder(dirpath):
         return
     if name.endswith((".config", ".cfg")):
         out.append(finding("AEMCS-002", path, root, detail=f"Superseded OSGi config format: {name}"))
-    if "LogManager.factory.writer" in name:
-        out.append(finding("AEMCS-020", path, root, detail="Custom log writer config"))
-    elif "LogManager.factory.config" in name:
-        m = re.search(r"org\.apache\.sling\.commons\.log\.file\"?\s*[:=]\s*\"?([^\"\s,}]+)", read(path))
-        if m and m.group(1) != "logs/error.log":
-            out.append(finding("AEMCS-020", path, root, detail=f"Custom log file: {m.group(1)}"))
+    scan_osgi_pid(path, root, out, name, read(path))
 
 
 def scan_dirs(root, out):

@@ -15,6 +15,8 @@ public class LegacyService {
     resolver = factory.getAdministrativeResourceResolver(null);
     try (FileOutputStream fos = new FileOutputStream("/tmp/export.csv")) {}
     client = HttpClients.createDefault();
-    Runtime.getRuntime().exec("convert in.png out.jpg");
+    Runtime runtime = Runtime.getRuntime();
+    runtime.exec("convert in.png out.jpg");
+    if (settings.getRunModes().contains("uat")) {}
   }
 }
