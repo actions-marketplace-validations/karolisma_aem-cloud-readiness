@@ -1,26 +1,46 @@
-# AEM Cloud Migration Skills for Claude
+# AEM Cloud Readiness Assessment for Claude
 
-**Claude Agent Skills that help AEM teams move from AEM 6.5 to AEM as a Cloud Service.**
+**A Claude Agent Skill that assesses an AEM 6.5 codebase for AEM as a Cloud Service from the Git repository alone.** It needs no running AEM instance and no BPA report.
 
-Adobe's Best Practices Analyzer and Cloud Acceleration Manager tell you *what* is wrong. These skills let Claude **read your codebase, explain each blocker in context, and help you fix it**, the way a senior AEM tech lead would during a migration assessment.
+It answers the questions that come *before* a migration starts:
 
-> Status: **v0.1, early.** The audit skill and its first 10 rules work. Restructuring and Dispatcher skills are next. Feedback and issues are welcome.
+- What in this codebase will fail or need rework on Cloud Service?
+- Which findings will stop the Cloud Manager pipeline, and which will pass the quality step but break in production?
+- Which API removals have a deadline?
+- How much effort is this, and what should be fixed first?
 
-## Skills
+> Status: **v0.2.** 24 rules, checked against Adobe's documentation in November 2026. Feedback and issues are welcome.
 
-| Skill | What it does | Status |
-| --- | --- | --- |
-| [`aem-migration-audit`](skills/aem-migration-audit/) | Scans an AEM 6.x Maven project for Cloud Service blockers and writes a prioritised report with fixes | ✅ v0.1 |
-| `aem-repo-restructure` | Guides the split into `ui.apps` / `ui.content` / `ui.config` and converts OSGi configs to `.cfg.json` | 🔜 planned |
-| `aem-dispatcher-check` | Validates Dispatcher config against the Cloud Service layout and explains each error | 🔜 planned |
+## Where it fits
+
+| Step | Tool |
+| --- | --- |
+| **1. Assess from the repo** (pre-sales, estimates, first look) | **This skill** |
+| 2. Analyse a running instance | Adobe Best Practices Analyzer, Cloud Acceleration Manager |
+| 3. Fix the code, pattern by pattern | Adobe's [AEM Cloud Migration skill](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/migration-journey/cloud-migration-skill/using-cloud-migration-skill), Dispatcher Converter, AEM Modernization Tools |
+
+Each finding names the Adobe skill pattern or tool that can fix it, where one exists.
 
 ## How it works
 
-1. **A fast, deterministic scan** (`scripts/scan.py`, standard-library Python) finds *candidates*: admin sessions, mixed mutable/immutable packages, custom run modes, legacy OSGi configs and more.
-2. **Claude verifies each candidate in context** against the [blocker catalogue](skills/aem-migration-audit/references/rules.md): it drops false positives, assigns severity and proposes concrete fixes.
-3. **You get a report** (`aem-migration-report.md`) with a summary, an effort band and an ordered list of findings.
+1. **A fast, deterministic scan** (`scripts/scan.py`, standard-library Python) finds *candidates*.
+2. **Claude verifies each candidate in context** against the [rule catalogue](skills/aem-migration-audit/references/rules.md): it drops false positives, sets the impact and proposes fixes.
+3. **You get a report** (`aem-migration-report.md`) with a summary, deadlines, an effort band and ordered findings.
 
-Current rules: mutable content in code packages · legacy OSGi config formats · custom run modes · administrative logins · replication agents · custom Oak indexes · local filesystem writes · DAM Update Asset customisations · Classic UI dialogs · legacy Dispatcher layout.
+Each rule records:
+
+- **Impact:** what breaks in practice.
+- **Adobe rule:** the Cloud Manager quality rule and its severity. Most Cloud Service compatibility rules are only `Minor`, so the pipeline passes code whose feature is gone. The report shows both.
+- **Evidence:** whether Adobe documents the constraint or it is inferred.
+
+## What it checks
+
+| Area | Rules |
+| --- | --- |
+| Packages and config | Mixed mutable/immutable packages · superseded OSGi formats · unsupported run modes · content under `/libs` · uber-jar · Java version · custom log files |
+| Java code | Admin logins · replication API and agents · reverse replication · filesystem writes · removed and soon-removed APIs · HTTP clients without timeouts · Sling scheduler · native processes |
+| Content and authoring | Oak index naming and blocking properties · DAM Update Asset customisations · Classic UI dialogs · static templates and foundation components |
+| Dispatcher | Cloud layout · legacy vs flexible mode |
 
 ## Use it with Claude Code
 
@@ -33,7 +53,7 @@ cp -r aem-cloud-migration-skills/skills/* ~/.claude/skills/
 Then, in your AEM project:
 
 ```
-claude "Audit this project for AEM as a Cloud Service migration blockers"
+claude "Assess this project's readiness for AEM as a Cloud Service"
 ```
 
 You can also run the scanner on its own:
@@ -48,13 +68,14 @@ python3 skills/aem-migration-audit/scripts/scan.py /path/to/aem-project
 python3 skills/aem-migration-audit/scripts/scan.py tests/fixtures/legacy-65-project
 ```
 
-The fixture is a tiny synthetic AEM 6.5 project with one example of each rule.
+The fixture is a tiny synthetic AEM 6.5 project with at least one example of each rule.
 
 ## Scope and honesty
 
-- These skills **complement** Adobe's own tools (Best Practices Analyzer, Cloud Acceleration Manager, the AEM Modernization Tools, the Dispatcher Converter). They don't replace them.
-- The audit is **read-only**. It never changes your code.
-- Rules are written from hands-on migration experience. Always check against Adobe's current AEM as a Cloud Service documentation.
+- The assessment is **read-only**. It never changes your code.
+- Scanner signals are heuristics. Claude verifies them, and you should too.
+- Rules were checked against Adobe's documentation on 15 November 2026. Adobe changes the platform often, so check the linked pages before you rely on a date or severity.
+- A repo-only assessment can't see content size, users, production indexes or integrations. Run BPA on a real instance for those.
 - Not affiliated with or endorsed by Adobe or Anthropic.
 
 ## Author

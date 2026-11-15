@@ -1,4 +1,2 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<jcr:root xmlns:oak="http://jackrabbit.apache.org/oak/ns/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0">
-  <productSearch jcr:primaryType="oak:QueryIndexDefinition" type="lucene"/>
-</jcr:root>
+<jcr:root xmlns:oak="http://jackrabbit.apache.org/oak/ns/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" jcr:primaryType="oak:QueryIndexDefinition" type="property" propertyNames="[sku]"/>
