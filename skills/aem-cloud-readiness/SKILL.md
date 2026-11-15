@@ -1,5 +1,5 @@
 ---
-name: aem-migration-audit
+name: aem-cloud-readiness
 description: Assess an AEM 6.x Maven project's readiness for AEM as a Cloud Service from the code repository alone, and write a prioritised report with impact, Adobe quality-rule mapping, effort and next steps. Use when someone asks to check, assess, audit or estimate an AEM 6.5 → AEM as a Cloud Service migration, or asks "what breaks on Cloud Service" for an AEM codebase.
 ---
 

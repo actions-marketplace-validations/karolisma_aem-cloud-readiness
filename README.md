@@ -24,7 +24,7 @@ Each finding names the Adobe skill pattern or tool that can fix it, where one ex
 ## How it works
 
 1. **A fast, deterministic scan** (`scripts/scan.py`, standard-library Python) finds *candidates*.
-2. **Claude verifies each candidate in context** against the [rule catalogue](skills/aem-migration-audit/references/rules.md): it drops false positives, sets the impact and proposes fixes.
+2. **Claude verifies each candidate in context** against the [rule catalogue](skills/aem-cloud-readiness/references/rules.md): it drops false positives, sets the impact and proposes fixes.
 3. **You get a report** (`aem-migration-report.md`) with a summary, deadlines, an effort band and ordered findings.
 
 Each rule records:
@@ -45,9 +45,9 @@ Each rule records:
 ## Use it with Claude Code
 
 ```bash
-git clone https://github.com/karolisma/aem-cloud-migration-skills.git
+git clone https://github.com/karolisma/aem-cloud-readiness.git
 mkdir -p ~/.claude/skills
-cp -r aem-cloud-migration-skills/skills/* ~/.claude/skills/
+cp -r aem-cloud-readiness/skills/* ~/.claude/skills/
 ```
 
 Then, in your AEM project:
@@ -59,13 +59,13 @@ claude "Assess this project's readiness for AEM as a Cloud Service"
 You can also run the scanner on its own:
 
 ```bash
-python3 skills/aem-migration-audit/scripts/scan.py /path/to/aem-project
+python3 skills/aem-cloud-readiness/scripts/scan.py /path/to/aem-project
 ```
 
 ## Try it on the test fixture
 
 ```bash
-python3 skills/aem-migration-audit/scripts/scan.py tests/fixtures/legacy-65-project
+python3 skills/aem-cloud-readiness/scripts/scan.py tests/fixtures/legacy-65-project
 ```
 
 The fixture is a tiny synthetic AEM 6.5 project with at least one example of each rule.
