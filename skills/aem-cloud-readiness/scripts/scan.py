@@ -21,7 +21,8 @@ ENVS = ("dev", "rde", "stage", "prod")
 ALLOWED_RUNMODES = set(SERVICES) | set(ENVS) | {f"{s}.{e}" for s in SERVICES for e in ENVS}
 
 INDEX_NAME_OK = re.compile(r"-\d+-custom-\d+$")
-ASYNC_OK = {"[async]", "[async,nrt]", "[fulltext-async]"}
+# FileVault writes a single-value property without brackets, so accept both forms.
+ASYNC_OK = {"[async]", "[async,nrt]", "[fulltext-async]", "async", "fulltext-async"}
 
 
 def imports(*prefixes):
@@ -31,8 +32,10 @@ def imports(*prefixes):
 JAVA_PATTERNS = [
     ("AEMCS-004", re.compile(r"\b(loginAdministrative|getAdministrativeResourceResolver|getAdministrativeSession)\s*\("),
      "Administrative login"),
-    ("AEMCS-005", re.compile(r"\bcom\.day\.cq\.replication\.(Replicator|AgentManager|Agent|ReplicationQueue)\b"),
+    ("AEMCS-005", re.compile(r"\bcom\.day\.cq\.replication\.(Replicator|AgentManager|Agent|AgentConfig|ReplicationQueue)\b"),
      "Classic replication API"),
+    ("AEMCS-005", re.compile(r"\bcom\.day\.cq\.replication\.(TransportHandler|ContentBuilder|ReplicationContent)\b"),
+     "Custom replication agent code"),
     ("AEMCS-007", re.compile(r"new\s+(FileOutputStream|FileWriter)\s*\(|Files\.(write|newOutputStream|newBufferedWriter)\s*\(|File\.createTempFile\s*\("),
      "Local filesystem write"),
     ("AEMCS-011", imports("com.google.common.", "org.apache.abdera.", "com.mongodb.", "ch.qos.logback.",
@@ -51,6 +54,7 @@ JAVA_PATTERNS = [
      "HTTP client without explicit timeouts"),
     ("AEMCS-017", re.compile(r"org\.apache\.sling\.commons\.scheduler\.|scheduler\.expression"),
      "Sling Commons Scheduler"),
+    ("AEMCS-025", imports("javax.jcr.observation."), "JCR observation listener"),
     ("AEMCS-023", re.compile(r"Runtime\.getRuntime\(\)\.exec\s*\(|new\s+ProcessBuilder\s*\(|System\.loadLibrary\s*\("),
      "Native binary or process execution"),
 ]
@@ -222,6 +226,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("root")
     ap.add_argument("--format", choices=["json", "text"], default="text")
+    ap.add_argument("--max-per-rule", type=int, default=10, help="text output: lines shown per rule")
     args = ap.parse_args()
     root = os.path.abspath(args.root)
     if not os.path.isdir(root):
@@ -236,9 +241,16 @@ def main():
     else:
         if not results:
             print("No candidates found.")
+        shown = {}
         for r in sorted(results, key=lambda r: (r["rule"], r["file"], r["line"] or 0)):
+            shown[r["rule"]] = shown.get(r["rule"], 0) + 1
+            if shown[r["rule"]] > args.max_per_rule:
+                continue
             loc = f"{r['file']}:{r['line']}" if r["line"] else r["file"]
             print(f"{r['rule']}  {loc}  {r['detail']}")
+        for rule, n in sorted(shown.items()):
+            if n > args.max_per_rule:
+                print(f"{rule}  ... and {n - args.max_per_rule} more (use --format json for all)")
         rules = len({r["rule"] for r in results})
         print(f"\n{len(results)} candidate(s) across {rules} rule(s). Verify each one against references/rules.md.")
 

@@ -9,7 +9,7 @@ It answers the questions that come *before* a migration starts:
 - Which API removals have a deadline?
 - How much effort is this, and what should be fixed first?
 
-> Status: **v0.2.** 24 rules, checked against Adobe's documentation in November 2026. Feedback and issues are welcome.
+> Status: **v0.2.** 25 rules, checked against Adobe's documentation in November 2026. Feedback and issues are welcome.
 
 ## Where it fits
 
@@ -38,7 +38,7 @@ Each rule records:
 | Area | Rules |
 | --- | --- |
 | Packages and config | Mixed mutable/immutable packages · superseded OSGi formats · unsupported run modes · content under `/libs` · uber-jar · Java version · custom log files |
-| Java code | Admin logins · replication API and agents · reverse replication · filesystem writes · removed and soon-removed APIs · HTTP clients without timeouts · Sling scheduler · native processes |
+| Java code | Admin logins · replication API and agents · reverse replication · filesystem writes · removed and soon-removed APIs · HTTP clients without timeouts · Sling scheduler · JCR observation listeners · native processes |
 | Content and authoring | Oak index naming and blocking properties · DAM Update Asset customisations · Classic UI dialogs · static templates and foundation components |
 | Dispatcher | Cloud layout · legacy vs flexible mode |
 

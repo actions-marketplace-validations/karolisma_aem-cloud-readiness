@@ -124,13 +124,14 @@ Rules 011–013 cover this. Check the dates against the live page before quoting
 - **Adobe rule:** `ReverseReplication` (Code Smell, Minor), for reverse agents only
 - **Evidence:** Documented that AEMaaCS uses Sling Content Distribution and that custom agents aren't supported. That `AgentManager` or `ReplicationQueue` code breaks is inferred.
 - **Adobe skill:** `replication`
-- **Scanner:** agent configs under `/etc/replication`, and `com.day.cq.replication` classes (`Replicator`, `AgentManager`, `Agent`, `ReplicationQueue`) in Java.
+- **Scanner:** agent configs under `/etc/replication`, and `com.day.cq.replication` classes in Java: `Replicator`, `AgentManager`, `Agent`, `ReplicationQueue`, plus `TransportHandler` and `ContentBuilder`, which signal a custom agent written in code.
 
 **What to check:**
 - **Agent configs** under `/etc/replication` are always a finding. Only `publish` and `preview` exist.
 - **Plain `Replicator.replicate()`** is supported. Check the limits: stay under 100 paths per call, 500 is the hard limit, and the payload ceiling is 10 MB.
 - **Bulk or tree publishing code** should move to the Tree Activation workflow step.
 - **Agent or queue introspection** needs redesign.
+- **Custom `TransportHandler` or `ContentBuilder` classes** are a custom agent (often used to push content to a search engine or another system). They need a new design, for example a Sling Content Distribution or event-based integration.
 
 See [Replication][repl].
 
@@ -207,6 +208,15 @@ See [Replication][repl].
 - **Scanner:** `Runtime.getRuntime().exec(`, `new ProcessBuilder(`, `System.loadLibrary(`.
 
 **Fix:** move the work to an external service, for example Asset Compute workers for ImageMagick or FFmpeg-style processing.
+
+## AEMCS-025: JCR observation listeners
+- **Impact:** Medium
+- **Adobe rule:** None on the quality-rules page. BPA reports it under its development-guidelines findings.
+- **Evidence:** Documented as a pattern to migrate. How badly a given listener behaves is inferred: listeners run on every instance and can miss events when an instance restarts.
+- **Adobe skill:** `eventListener`
+- **Scanner:** imports of `javax.jcr.observation.`.
+
+**Fix:** use a Sling `ResourceChangeListener`, and hand long or must-complete work to a Sling Job.
 
 ---
 

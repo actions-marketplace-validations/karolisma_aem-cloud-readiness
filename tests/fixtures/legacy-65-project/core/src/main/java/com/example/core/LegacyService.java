@@ -7,6 +7,8 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.sling.commons.scheduler.Scheduler;
 import org.apache.http.impl.client.HttpClients;
 import java.io.FileOutputStream;
+import javax.jcr.observation.EventListener;
+import com.day.cq.replication.TransportHandler;
 public class LegacyService {
   void run() throws Exception {
     // getAdministrativeResourceResolver( in a comment should be ignored
