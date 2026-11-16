@@ -72,6 +72,13 @@ python3 skills/aem-cloud-readiness/scripts/scan.py tests/fixtures/legacy-65-proj
 
 The fixture is a tiny synthetic AEM 6.5 project with at least one example of each rule.
 
+## Example reports
+
+Two reports on public Adobe projects, so you can see the output before you run anything:
+
+- [We.Retail](examples/we-retail-report.md): Adobe's archived AEM 6.x reference site. 38 scanner candidates became 10 verified findings, 3 of them blockers, plus a fix plan.
+- [WKND](examples/wknd-report.md): Adobe's current reference site, built for Cloud Service. The control case: 3 candidates, all dismissed with reasons, nothing to fix.
+
 ## Scope and honesty
 
 - The assessment is **read-only**. It never changes your code.
