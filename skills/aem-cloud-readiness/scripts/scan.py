@@ -23,6 +23,11 @@ ALLOWED_RUNMODES = set(SERVICES) | set(ENVS) | {f"{s}.{e}" for s in SERVICES for
 INDEX_NAME_OK = re.compile(r"-\d+-custom-\d+$")
 # FileVault writes a single-value property without brackets, so accept both forms.
 ASYNC_OK = {"[async]", "[async,nrt]", "[fulltext-async]", "async", "fulltext-async"}
+# Test-client modules (archetype names it.tests, ui.tests and variants) run outside AEM
+# and are never deployed, so the runtime API rules don't apply to their Java code.
+TEST_MODULE = re.compile(r"^(it|ui)\.tests(\..+)?$")
+PROFILES_BLOCK = re.compile(r"<profiles>.*?</profiles>", re.S)
+UBER_JAR = re.compile(r"<artifactId>\s*uber-jar\s*</artifactId>")
 
 
 def imports(*prefixes):
@@ -70,6 +75,11 @@ def walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         for name in filenames:
             yield dirpath, name, os.path.join(dirpath, name)
+
+
+def in_test_code(path, root):
+    parts = norm(os.path.relpath(path, root)).split("/")
+    return "/src/test/" in norm(path) or any(TEST_MODULE.match(part) for part in parts[:-1])
 
 
 def finding(rule, path, root, line=None, detail=""):
@@ -159,8 +169,12 @@ def scan_xml(path, root, out, dirpath, name):
         out.append(finding("AEMCS-022", path, root, detail="Reverse replication agent or outbox"))
     if name == "logback.xml":
         out.append(finding("AEMCS-020", path, root, detail="logback.xml"))
-    if name == "pom.xml" and re.search(r"<artifactId>\s*uber-jar\s*</artifactId>", text):
-        out.append(finding("AEMCS-014", path, root, detail="uber-jar dependency"))
+    if name == "pom.xml" and UBER_JAR.search(text):
+        # A project built for both targets keeps uber-jar in an optional profile next to
+        # aem-sdk-api. That is by design, so only flag uber-jar outside profiles, or with no SDK.
+        outside_profiles = UBER_JAR.search(PROFILES_BLOCK.sub("", text))
+        if outside_profiles or "aem-sdk-api" not in text:
+            out.append(finding("AEMCS-014", path, root, detail="uber-jar dependency"))
 
 
 LOG_FILE = re.compile(r"org\.apache\.sling\.commons\.log\.file\"?\s*[:=]\s*\"?([^\"\s,}]+)")
@@ -231,7 +245,7 @@ def scan(root):
     out = []
     for dirpath, name, path in walk(root):
         if name.endswith(".java"):
-            if "/src/test/" not in norm(path):
+            if not in_test_code(path, root):
                 scan_java(path, root, out)
         elif name == "filter.xml" and "META-INF" in path:
             scan_filter(path, root, out)

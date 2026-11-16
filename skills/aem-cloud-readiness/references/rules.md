@@ -2,7 +2,7 @@
 
 Rules for auditing an AEM 6.x codebase before a move to AEM as a Cloud Service (AEMaaCS).
 
-**Version:** v0.2, researched against Adobe's documentation on 15 November 2026.
+**Version:** v0.3, researched against Adobe's documentation on 15 November 2026.
 
 ## How to read a rule
 
@@ -12,7 +12,7 @@ Each rule has these fields:
 - **Adobe rule:** the matching Cloud Manager code-quality rule, with Adobe's type and severity from the [AEMaaCS Custom Code Quality Rules page][cqr], or the Build Analyzer check. `None` means Adobe has no rule for it.
 - **Evidence:** `Documented` means Adobe's docs state the constraint. `Inferred` means it follows from the docs or from field experience, but no Adobe page says it outright. Say so in the report.
 - **Adobe skill:** the pattern in [Adobe's AEM Cloud Migration skill][skill] that can fix the finding, if one exists. See "Handing a finding to Adobe's skill" below.
-- **Scanner:** what `scripts/scan.py` flags. Every scanner signal is a heuristic, not Adobe text.
+- **Scanner:** what `scripts/scan.py` flags. Every scanner signal is a heuristic, not Adobe text. Java rules skip unit tests (`src/test`) and test-client modules (`it.tests`, `ui.tests` and variants), because that code never runs inside AEM.
 
 Two things to keep in mind:
 
@@ -105,7 +105,7 @@ Rules 011–013 cover this. Check the dates against the live page before quoting
 - **Adobe rule:** None
 - **Evidence:** Documented that the API jar is now `com.adobe.aem:aem-sdk-api`. That uber-jar is "unsupported" is not stated in so many words.
 - **Adobe skill:** none
-- **Scanner:** `uber-jar` in a `pom.xml`.
+- **Scanner:** `uber-jar` in a `pom.xml`. Not flagged when it is declared only inside an optional Maven profile and the same POM also uses `aem-sdk-api`, which is how a project built for both 6.5 and Cloud Service looks.
 
 **Fix:** depend on `com.adobe.aem:aem-sdk-api` (scope `provided`) and add the `aemanalyser-maven-plugin`, which checks the build locally the way Cloud Manager does. See [AEM SDK][sdk].
 

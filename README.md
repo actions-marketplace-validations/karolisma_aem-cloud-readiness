@@ -9,7 +9,9 @@ It answers the questions that come *before* a migration starts:
 - Which API removals have a deadline?
 - How much effort is this, and what should be fixed first?
 
-> Status: **v0.2.** 28 rules, checked against Adobe's documentation in November 2026. Feedback and issues are welcome.
+[![Tests](https://github.com/karolisma/aem-cloud-readiness/actions/workflows/tests.yml/badge.svg)](https://github.com/karolisma/aem-cloud-readiness/actions/workflows/tests.yml)
+
+> Status: **v0.3.** 28 rules, checked against Adobe's documentation in November 2026. Feedback and issues are welcome.
 
 ## Where it fits
 
@@ -44,7 +46,37 @@ Each rule records:
 | Content and authoring | Oak index naming and blocking properties · DAM Update Asset customisations · Classic UI dialogs · static templates and foundation components |
 | Dispatcher | Cloud layout · legacy vs flexible mode |
 
-## Use it with Claude Code
+## Install in Claude Code
+
+Inside Claude Code, run these two commands, one at a time:
+
+```
+/plugin marketplace add karolisma/aem-cloud-readiness
+/plugin install aem-cloud-readiness@aem-cloud-readiness
+```
+
+On Claude Code 2.1.275 or later, one line does both:
+
+```
+/plugin install aem-cloud-readiness --marketplace karolisma/aem-cloud-readiness
+```
+
+Then, in your AEM project:
+
+```
+Assess this project's readiness for AEM as a Cloud Service
+```
+
+To fix what it finds, install Adobe's skill next to it and follow the fix plan in the report:
+
+```
+/plugin marketplace add adobe/skills
+/plugin install aem-cloud-service@adobe-skills
+```
+
+### Without the plugin system
+
+Copy the skill folder by hand:
 
 ```bash
 git clone https://github.com/karolisma/aem-cloud-readiness.git
@@ -52,13 +84,7 @@ mkdir -p ~/.claude/skills
 cp -r aem-cloud-readiness/skills/* ~/.claude/skills/
 ```
 
-Then, in your AEM project:
-
-```
-claude "Assess this project's readiness for AEM as a Cloud Service"
-```
-
-You can also run the scanner on its own:
+Or run the scanner on its own. It needs only Python 3 and has no dependencies:
 
 ```bash
 python3 skills/aem-cloud-readiness/scripts/scan.py /path/to/aem-project
@@ -72,12 +98,20 @@ python3 skills/aem-cloud-readiness/scripts/scan.py tests/fixtures/legacy-65-proj
 
 The fixture is a tiny synthetic AEM 6.5 project with at least one example of each rule.
 
+Run the tests:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+They check the scanner against the fixture and against small cases for each known false positive. GitHub Actions runs them on every push.
+
 ## Example reports
 
 Two reports on public Adobe projects, so you can see the output before you run anything:
 
 - [We.Retail](examples/we-retail-report.md): Adobe's archived AEM 6.x reference site. 38 scanner candidates became 10 verified findings, 3 of them blockers, plus a fix plan.
-- [WKND](examples/wknd-report.md): Adobe's current reference site, built for Cloud Service. The control case: 3 candidates, all dismissed with reasons, nothing to fix.
+- [WKND](examples/wknd-report.md): Adobe's current reference site, built for Cloud Service. The control case: 1 candidate, dismissed with the reason, nothing to fix.
 
 ## Scope and honesty
 

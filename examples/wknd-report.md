@@ -8,7 +8,7 @@
 
 ## Summary
 
-WKND is ready for AEM as a Cloud Service, as expected. The scanner raised 3 candidates across 3 rules. All 3 were checked by hand and dismissed, with the reasons below. No effort is needed.
+WKND is ready for AEM as a Cloud Service, as expected. The scanner raised 1 candidate. It was checked by hand and dismissed, with the reason below. No effort is needed.
 
 | Impact | Count |
 | --- | --- |
@@ -27,24 +27,13 @@ None.
 
 ## Candidates checked and dismissed
 
-The scanner only flags candidates. These three show why each one is read in context before it becomes a finding.
+The scanner only flags candidates. This one shows why each is read in context before it becomes a finding.
 
 ### AEMCS-009: Classic UI dialog
 - **Where:** `ui.apps/src/main/content/jcr_root/apps/msm/wknd_blueprint/_jcr_content/dialog.xml`
 - **What it is:** a `cq:Dialog` node with three `cqinclude` widgets that point to `/libs/wcm/msm/templates/blueprint/defaults/`.
 - **Why it is dismissed:** this is not a component dialog. It is part of a Multi Site Manager blueprint configuration, and it has the structure the product itself writes when a blueprint configuration is created. No author edits content through it.
 - **Evidence:** Inferred. Adobe's docs don't describe this node. If Best Practices Analyzer reports it under "Legacy UI" on a real instance, treat that the same way.
-
-### AEMCS-011: API package already removed
-- **Where:** `it.tests/src/main/java/com/adobe/aem/guides/wknd/it/tests/PublishPageValidationIT.java:29`
-- **What it is:** `import org.eclipse.jetty.client.HttpResponse;`
-- **Why it is dismissed:** two reasons. The `it.tests` module is an integration-test client that runs outside AEM and is never deployed, so the API regions of the AEM runtime don't apply to it. And the import is unused: the class only uses `org.apache.http.HttpResponse` and `SlingHttpResponse`.
-- **Optional tidy-up:** delete the unused import.
-
-### AEMCS-014: Uber-jar dependency
-- **Where:** `core/pom.xml`
-- **What it is:** a `com.adobe.aem:uber-jar` dependency.
-- **Why it is dismissed:** it sits inside the optional `classic` Maven profile, which exists so the same code can also be built for AEM 6.5. The `cloudservice` profile is active by default and uses `aem-sdk-api`.
 
 ## Fix plan
 
@@ -56,7 +45,4 @@ Things that need a running instance or Adobe tooling: content repository size, u
 
 ## Notes on the scanner
 
-This run shows two places where the scanner could be stricter, so that a clean project gives a clean scan:
-
-- Skip Java API rules in test-client modules such as `it.tests` and `ui.tests`.
-- Don't flag `uber-jar` when it is declared only in a non-default profile next to `aem-sdk-api`.
+An earlier run of this project raised two more candidates, both false: an unused import in the `it.tests` client module, and an `uber-jar` dependency that sits in the optional `classic` Maven profile next to `aem-sdk-api`. The scanner was changed in v0.3 so that neither is flagged, and both cases are now covered by tests.
