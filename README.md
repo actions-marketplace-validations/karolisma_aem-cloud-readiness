@@ -1,23 +1,42 @@
-# AEM Cloud Readiness Assessment for Claude
+# AEM Cloud Readiness Assessment
 
-**A Claude Agent Skill that assesses an AEM 6.5 codebase for AEM as a Cloud Service from the Git repository alone.** It needs no running AEM instance and no BPA report.
+**Find out what in an AEM 6.5 codebase will break on AEM as a Cloud Service, from the Git repository alone.** It needs no running AEM instance and no BPA report.
 
-It answers the questions that come *before* a migration starts:
+[![Tests](https://github.com/karolisma/aem-cloud-readiness/actions/workflows/tests.yml/badge.svg)](https://github.com/karolisma/aem-cloud-readiness/actions/workflows/tests.yml)
+
+## Two ways to use it
+
+| | What you get | Needs |
+| --- | --- | --- |
+| **[GitHub Action](#use-it-in-ci-github-action)** | A check on every pull request: deprecated API use and other blockers, marked on the affected lines. Can fail the build before Adobe's removal date does. | A GitHub workflow. Nothing else. |
+| **[Claude skill](#install-in-claude-code)** | A full assessment: every candidate read in context, an impact per finding, an effort estimate and a fix plan. | Claude Code |
+
+Both run the same scanner and the same 28 rules. The quickest start is the action:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: karolisma/aem-cloud-readiness@v0.4.2
+  with:
+    rules: deprecated-apis
+    fail-on: deadline
+```
+
+> Status: **v0.4.2.** 28 rules, checked against Adobe's documentation in November 2026. Feedback and issues are welcome.
+
+## What it answers
+
+The questions that come *before* a migration starts:
 
 - What in this codebase will fail or need rework on Cloud Service?
 - Which findings will stop the Cloud Manager pipeline, and which will pass the quality step but break in production?
 - Which API removals have a deadline?
 - How much effort is this, and what should be fixed first?
 
-[![Tests](https://github.com/karolisma/aem-cloud-readiness/actions/workflows/tests.yml/badge.svg)](https://github.com/karolisma/aem-cloud-readiness/actions/workflows/tests.yml)
-
-> Status: **v0.4.** 28 rules, checked against Adobe's documentation in November 2026. Feedback and issues are welcome.
-
 ## Where it fits
 
 | Step | Tool |
 | --- | --- |
-| **1. Assess from the repo** (pre-sales, estimates, first look) | **This skill** |
+| **1. Assess from the repo** (pre-sales, estimates, first look) | **This project** |
 | 2. Analyse a running instance | Adobe Best Practices Analyzer, Cloud Acceleration Manager |
 | 3. Fix the code, pattern by pattern | Adobe's [AEM Cloud Migration skill](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/migration-journey/cloud-migration-skill/using-cloud-migration-skill), Dispatcher Converter, AEM Modernization Tools |
 
@@ -105,7 +124,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: karolisma/aem-cloud-readiness@v0.4.1
+      - uses: karolisma/aem-cloud-readiness@v0.4.2
         with:
           rules: deprecated-apis
           fail-on: deadline
