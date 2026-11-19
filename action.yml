@@ -1,7 +1,5 @@
 name: AEM Cloud Service readiness check
-description: >-
-  Scan an AEM codebase for AEM as a Cloud Service blockers and for APIs on Adobe's removal list.
-  Reports candidates as annotations and a job summary, and can fail the build.
+description: Find AEM as a Cloud Service blockers and deprecated API use in an AEM codebase, as annotations on pull requests.
 author: Karolis Mackevicius
 branding:
   icon: check-circle

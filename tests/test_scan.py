@@ -317,6 +317,14 @@ class PluginManifestTest(unittest.TestCase):
         for option in ("--format github", "--rules", "--fail-on", "--path-prefix"):
             self.assertIn(option, text)
 
+    def test_action_description_fits_the_marketplace_limit(self):
+        with open(os.path.join(REPO, "action.yml"), encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+        description = next(line for line in lines if line.startswith("description:"))
+        text = description[len("description:"):].strip()
+        self.assertNotIn(text, (">-", ">", "|"), "keep the description on one line")
+        self.assertLess(len(text), 125)
+
 
 if __name__ == "__main__":
     unittest.main()

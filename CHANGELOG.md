@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.1 (19 November 2026)
+
+- Shorter action description, to meet the GitHub Marketplace limit of 125 characters. No change in behaviour.
+
 ## v0.4.0 (19 November 2026)
 
 - The scanner runs as a GitHub Action: annotations on the affected lines, a job summary, and an optional failing check.
