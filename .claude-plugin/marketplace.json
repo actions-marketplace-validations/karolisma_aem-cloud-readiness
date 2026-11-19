@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "AEM as a Cloud Service readiness assessment for Claude",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "plugins": [
     {
@@ -14,7 +14,7 @@
       "source": "./skills/aem-cloud-readiness",
       "strict": false,
       "description": "Assess an AEM 6.x codebase for AEM as a Cloud Service readiness from the Git repository alone: 28 rules, a Python scanner, a verified report, and a hand-off to Adobe's AEM Cloud Migration skill.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "category": "aem",
       "keywords": ["aem", "aemaacs", "cloud-service", "adobe-experience-manager", "migration", "code-assessment"],
       "author": {

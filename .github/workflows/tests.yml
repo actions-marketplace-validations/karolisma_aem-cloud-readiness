@@ -24,3 +24,31 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Scan the fixture
         run: python skills/aem-cloud-readiness/scripts/scan.py tests/fixtures/legacy-65-project
+
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report only
+        id: report
+        uses: ./
+        with:
+          path: tests/fixtures/legacy-65-project
+      - name: Fail on the deadline rules
+        id: deadline
+        continue-on-error: true
+        uses: ./
+        with:
+          path: tests/fixtures/legacy-65-project
+          rules: deprecated-apis
+          fail-on: deadline
+      - name: Check the results
+        env:
+          CANDIDATES: ${{ steps.report.outputs.candidates }}
+          FAILING: ${{ steps.deadline.outputs.failing }}
+          OUTCOME: ${{ steps.deadline.outcome }}
+        run: |
+          echo "candidates=$CANDIDATES failing=$FAILING outcome=$OUTCOME"
+          test "$CANDIDATES" = "37"
+          test "$FAILING" = "2"
+          test "$OUTCOME" = "failure"

@@ -30,6 +30,45 @@ PROFILES_BLOCK = re.compile(r"<profiles>.*?</profiles>", re.S)
 UBER_JAR = re.compile(r"<artifactId>\s*uber-jar\s*</artifactId>")
 
 
+RULE_TITLES = {
+    "AEMCS-001": "Mutable and immutable content in one package",
+    "AEMCS-002": "OSGi configuration in a superseded format",
+    "AEMCS-003": "Unsupported run modes",
+    "AEMCS-004": "Administrative sessions and resource resolvers",
+    "AEMCS-005": "Replication agents and the Replication API",
+    "AEMCS-006": "Custom Oak index naming and placement",
+    "AEMCS-007": "Writing to the local filesystem",
+    "AEMCS-008": "Customised DAM Update Asset workflow",
+    "AEMCS-009": "Classic UI dialogs",
+    "AEMCS-010": "Dispatcher configuration not in Cloud Service format",
+    "AEMCS-011": "API packages already removed",
+    "AEMCS-012": "APIs removed on 31 March 2027",
+    "AEMCS-013": "APIs removed on 31 December 2027 (tentative)",
+    "AEMCS-014": "Uber-jar dependency",
+    "AEMCS-015": "Java version for the build",
+    "AEMCS-016": "HTTP clients without timeouts",
+    "AEMCS-017": "Sling Commons Scheduler",
+    "AEMCS-018": "Content under /libs",
+    "AEMCS-019": "Index properties that block the pipeline",
+    "AEMCS-020": "Custom log files and logging frameworks",
+    "AEMCS-021": "Static templates and foundation components",
+    "AEMCS-022": "Reverse replication",
+    "AEMCS-023": "Native binaries and process execution",
+    "AEMCS-024": "Dispatcher in legacy mode",
+    "AEMCS-025": "JCR observation listeners",
+    "AEMCS-026": "Purge and maintenance as OSGi config",
+    "AEMCS-027": "Mail service configuration",
+    "AEMCS-028": "Run-mode checks in code",
+}
+# Named groups for --rules and --fail-on. "deadline" = API use that already breaks the build
+# or stops deploying when Adobe removes the 31 March 2027 batch.
+RULE_GROUPS = {
+    "deadline": ("AEMCS-011", "AEMCS-012"),
+    "deprecated-apis": ("AEMCS-011", "AEMCS-012", "AEMCS-013"),
+}
+RULES_URL = "https://github.com/karolisma/aem-cloud-readiness/blob/main/skills/aem-cloud-readiness/references/rules.md"
+
+
 def imports(*prefixes):
     return re.compile(r"^\s*import\s+(static\s+)?(" + "|".join(re.escape(p) for p in prefixes) + r")")
 
@@ -258,17 +297,103 @@ def scan(root):
     return out
 
 
+def parse_rules(value, option):
+    """Turn 'AEMCS-011, deadline' into a set of rule ids. 'any' = every rule, 'none' or '' = no rule."""
+    value = (value or "").strip()
+    if value.lower() in ("", "none"):
+        return set()
+    if value.lower() in ("any", "all"):
+        return set(RULE_TITLES)
+    rules = set()
+    for item in re.split(r"[,\s]+", value):
+        if not item:
+            continue
+        if item.lower() in RULE_GROUPS:
+            rules.update(RULE_GROUPS[item.lower()])
+        elif item.upper() in RULE_TITLES:
+            rules.add(item.upper())
+        else:
+            sys.exit(f"{option}: unknown rule or group '{item}'. Use rule ids such as AEMCS-012, "
+                     f"or one of: any, none, {', '.join(sorted(RULE_GROUPS))}.")
+    return rules
+
+
+def gh_escape(text, prop=False):
+    text = str(text).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    return text.replace(":", "%3A").replace(",", "%2C") if prop else text
+
+
+def github_report(results, failing, prefix):
+    """Annotations on stdout, a summary table in the job summary, counts in the step outputs."""
+    prefix = norm(prefix).strip("/")
+    prefix = "" if prefix in ("", ".") else prefix + "/"
+    ordered = sorted(results, key=lambda r: (r["rule"] not in failing, r["rule"], r["file"], r["line"] or 0))
+    for r in ordered:
+        level = "error" if r["rule"] in failing else "warning"
+        props = [f"file={gh_escape(prefix + r['file'], True)}"]
+        if r["line"]:
+            props.append(f"line={r['line']}")
+        props.append(f"title={gh_escape(r['rule'] + ': ' + RULE_TITLES[r['rule']], True)}")
+        print(f"::{level} {','.join(props)}::{gh_escape(r['detail'] or RULE_TITLES[r['rule']])}")
+
+    counts = {}
+    for r in results:
+        counts[r["rule"]] = counts.get(r["rule"], 0) + 1
+    n_fail = sum(1 for r in results if r["rule"] in failing)
+    lines = ["## AEM Cloud Service readiness", ""]
+    if not results:
+        lines.append("No candidates found.")
+    else:
+        lines += [f"{len(results)} candidate(s) across {len(counts)} rule(s)."
+                  + (f" **{n_fail} fail this check.**" if n_fail else ""), "",
+                  "| Rule | What | Candidates | Fails the check |", "| --- | --- | --- | --- |"]
+        for rule in sorted(counts, key=lambda k: (k not in failing, k)):
+            anchor = (rule + "-" + re.sub(r"[^a-z0-9 -]", "", RULE_TITLES[rule].lower()).replace(" ", "-")).lower()
+            lines.append(f"| [{rule}]({RULES_URL}#{anchor}) | {RULE_TITLES[rule]} | {counts[rule]} | "
+                         f"{'yes' if rule in failing else 'no'} |")
+        lines += ["", "<details><summary>All candidates</summary>", "", "| Rule | Location | Detail |", "| --- | --- | --- |"]
+        for r in ordered[:200]:
+            loc = f"{prefix}{r['file']}" + (f":{r['line']}" if r["line"] else "")
+            detail = (r["detail"] or "").replace("|", "\\|")
+            lines.append(f"| {r['rule']} | `{loc}` | {detail} |")
+        if len(ordered) > 200:
+            lines.append(f"| | | ... and {len(ordered) - 200} more |")
+        lines += ["", "</details>", "",
+                  "These are candidates found by pattern matching. Read each one in context before treating it as a "
+                  f"finding: [rule catalogue]({RULES_URL})."]
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+    output = os.environ.get("GITHUB_OUTPUT")
+    if output:
+        with open(output, "a", encoding="utf-8") as fh:
+            fh.write(f"candidates={len(results)}\nfailing={n_fail}\n")
+    print(f"{len(results)} candidate(s) across {len(counts)} rule(s); {n_fail} fail this check.")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("root")
-    ap.add_argument("--format", choices=["json", "text"], default="text")
+    ap.add_argument("--format", choices=["json", "text", "github"], default="text")
     ap.add_argument("--max-per-rule", type=int, default=10, help="text output: lines shown per rule")
+    ap.add_argument("--rules", default="any",
+                    help="rules to report: 'any', rule ids (AEMCS-012,AEMCS-014) or a group (deadline, deprecated-apis)")
+    ap.add_argument("--fail-on", default="none",
+                    help="exit with status 1 when one of these rules has a candidate: 'none', 'any', rule ids or a group")
+    ap.add_argument("--path-prefix", default="",
+                    help="github output: path of ROOT inside the repository, so annotations land on the right files")
     args = ap.parse_args()
     root = os.path.abspath(args.root)
     if not os.path.isdir(root):
         sys.exit(f"Not a directory: {root}")
-    results = scan(root)
-    if args.format == "json":
+    wanted = parse_rules(args.rules, "--rules")
+    failing = parse_rules(args.fail_on, "--fail-on")
+    results = [r for r in scan(root) if r["rule"] in wanted]
+    failed = any(r["rule"] in failing for r in results)
+    if args.format == "github":
+        github_report(results, failing, args.path_prefix)
+    elif args.format == "json":
         counts = {}
         for r in results:
             counts[r["rule"]] = counts.get(r["rule"], 0) + 1
@@ -289,6 +414,8 @@ def main():
                 print(f"{rule}  ... and {n - args.max_per_rule} more (use --format json for all)")
         rules = len({r["rule"] for r in results})
         print(f"\n{len(results)} candidate(s) across {rules} rule(s). Verify each one against references/rules.md.")
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,48 @@
+name: AEM Cloud Service readiness check
+description: >-
+  Scan an AEM codebase for AEM as a Cloud Service blockers and for APIs on Adobe's removal list.
+  Reports candidates as annotations and a job summary, and can fail the build.
+author: Karolis Mackevicius
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  path:
+    description: Folder of the AEM project to scan, relative to the repository root.
+    required: false
+    default: "."
+  rules:
+    description: >-
+      Rules to report. "any" (default), a comma-separated list of rule ids such as
+      "AEMCS-011,AEMCS-012", or a group: "deadline" (APIs already removed or removed on
+      31 March 2027) or "deprecated-apis" (the same plus the December 2027 batch).
+    required: false
+    default: "any"
+  fail-on:
+    description: >-
+      Fail the job when one of these rules has a candidate. "none" (default, report only),
+      "any", a comma-separated list of rule ids, or a group such as "deadline".
+    required: false
+    default: "none"
+
+outputs:
+  candidates:
+    description: Number of candidates found.
+    value: ${{ steps.scan.outputs.candidates }}
+  failing:
+    description: Number of candidates in the rules listed in fail-on.
+    value: ${{ steps.scan.outputs.failing }}
+
+runs:
+  using: composite
+  steps:
+    - id: scan
+      shell: bash
+      env:
+        SCAN_PATH: ${{ inputs.path }}
+        SCAN_RULES: ${{ inputs.rules }}
+        SCAN_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        python3 "$GITHUB_ACTION_PATH/skills/aem-cloud-readiness/scripts/scan.py" "$SCAN_PATH" \
+          --format github --rules "$SCAN_RULES" --fail-on "$SCAN_FAIL_ON" --path-prefix "$SCAN_PATH"

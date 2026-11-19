@@ -2,7 +2,7 @@
 
 Rules for auditing an AEM 6.x codebase before a move to AEM as a Cloud Service (AEMaaCS).
 
-**Version:** v0.3, researched against Adobe's documentation on 15 November 2026.
+**Version:** v0.4, researched against Adobe's documentation on 15 November 2026.
 
 ## How to read a rule
 

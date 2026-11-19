@@ -11,7 +11,7 @@ It answers the questions that come *before* a migration starts:
 
 [![Tests](https://github.com/karolisma/aem-cloud-readiness/actions/workflows/tests.yml/badge.svg)](https://github.com/karolisma/aem-cloud-readiness/actions/workflows/tests.yml)
 
-> Status: **v0.3.** 28 rules, checked against Adobe's documentation in November 2026. Feedback and issues are welcome.
+> Status: **v0.4.** 28 rules, checked against Adobe's documentation in November 2026. Feedback and issues are welcome.
 
 ## Where it fits
 
@@ -89,6 +89,41 @@ Or run the scanner on its own. It needs only Python 3 and has no dependencies:
 ```bash
 python3 skills/aem-cloud-readiness/scripts/scan.py /path/to/aem-project
 ```
+
+## Use it in CI: GitHub Action
+
+The scanner also runs as a GitHub Action, with no Claude involved. Use it to catch deprecated API use in pull requests before Adobe's removal date does it for you.
+
+Adobe removes another set of deprecated APIs on 31 March 2027. Cloud Manager pipelines that use them pause at Code Quality from December 2026 and fail from January 2027. This workflow fails a pull request that adds such code:
+
+```yaml
+name: AEM readiness
+on: [pull_request]
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: karolisma/aem-cloud-readiness@v0
+        with:
+          rules: deprecated-apis
+          fail-on: deadline
+```
+
+Findings show up as annotations on the changed files and as a table in the job summary.
+
+| Input | Default | Meaning |
+| --- | --- | --- |
+| `path` | `.` | Folder of the AEM project, relative to the repository root. |
+| `rules` | `any` | What to report: `any`, rule ids such as `AEMCS-011,AEMCS-012`, or a group. |
+| `fail-on` | `none` | What fails the job: `none`, `any`, rule ids, or a group. |
+
+Groups: `deadline` is APIs already removed plus the 31 March 2027 batch (AEMCS-011, AEMCS-012). `deprecated-apis` adds the December 2027 batch (AEMCS-013).
+
+Outputs: `candidates` and `failing`, the two counts.
+
+Start with the default `fail-on: none` to see what a project has, then tighten. The scanner matches patterns and does not understand code, so a hit is a candidate to read, not a verdict. The API rules are the most reliable ones, because an import either is on Adobe's list or isn't.
 
 ## Try it on the test fixture
 

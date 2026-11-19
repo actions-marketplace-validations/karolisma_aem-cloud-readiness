@@ -222,6 +222,85 @@ class CommandLineTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
 
 
+class RuleSelectionTest(unittest.TestCase):
+    def run_cli(self, *args, env=None):
+        full_env = dict(os.environ)
+        for key in ("GITHUB_STEP_SUMMARY", "GITHUB_OUTPUT"):
+            full_env.pop(key, None)
+        full_env.update(env or {})
+        return subprocess.run([sys.executable, SCAN_PY, *args], capture_output=True, text=True, env=full_env)
+
+    def test_every_rule_has_a_title(self):
+        self.assertEqual(set(scan.RULE_TITLES), ALL_RULES)
+
+    def test_titles_match_the_rule_catalogue(self):
+        with open(RULES_MD, encoding="utf-8") as fh:
+            text = fh.read()
+        for rule, title in scan.RULE_TITLES.items():
+            self.assertIn(f"## {rule}: {title}\n", text)
+
+    def test_rules_filter(self):
+        result = self.run_cli(FIXTURE, "--format", "json", "--rules", "AEMCS-014, aemcs-015")
+        self.assertEqual(set(json.loads(result.stdout)["counts"]), {"AEMCS-014", "AEMCS-015"})
+
+    def test_deadline_group(self):
+        result = self.run_cli(FIXTURE, "--format", "json", "--rules", "deadline")
+        self.assertEqual(set(json.loads(result.stdout)["counts"]), {"AEMCS-011", "AEMCS-012"})
+
+    def test_default_never_fails(self):
+        self.assertEqual(self.run_cli(FIXTURE).returncode, 0)
+
+    def test_fail_on_matching_rule(self):
+        self.assertEqual(self.run_cli(FIXTURE, "--fail-on", "deadline").returncode, 1)
+        self.assertEqual(self.run_cli(FIXTURE, "--fail-on", "any").returncode, 1)
+
+    def test_fail_on_rule_without_candidates_passes(self):
+        with tempfile.TemporaryDirectory() as root:
+            write(root, "core/pom.xml", POM.format(deps=UBER, profiles=""))
+            write(root, ".cloudmanager/java-version", "21\n")
+            self.assertEqual(self.run_cli(root, "--fail-on", "deadline").returncode, 0)
+            self.assertEqual(self.run_cli(root, "--fail-on", "AEMCS-014").returncode, 1)
+
+    def test_fail_on_only_counts_reported_rules(self):
+        result = self.run_cli(FIXTURE, "--rules", "AEMCS-014", "--fail-on", "deadline")
+        self.assertEqual(result.returncode, 0)
+
+    def test_unknown_rule_is_an_error(self):
+        result = self.run_cli(FIXTURE, "--fail-on", "AEMCS-999")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unknown rule or group", result.stderr)
+
+    def test_github_format(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            summary, output = os.path.join(tmp, "summary.md"), os.path.join(tmp, "output.txt")
+            result = self.run_cli(FIXTURE, "--format", "github", "--fail-on", "deadline",
+                                  "--path-prefix", "aem/project",
+                                  env={"GITHUB_STEP_SUMMARY": summary, "GITHUB_OUTPUT": output})
+            self.assertEqual(result.returncode, 1)
+            lines = result.stdout.splitlines()
+            errors = [line for line in lines if line.startswith("::error ")]
+            warnings = [line for line in lines if line.startswith("::warning ")]
+            self.assertEqual((len(errors), len(warnings)), (2, 35))
+            self.assertIn("file=aem/project/core/src/main/java/com/example/core/LegacyService.java,line=4,"
+                          "title=AEMCS-012%3A APIs removed on 31 March 2027::", errors[1])
+            with open(output, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), "candidates=37\nfailing=2\n")
+            with open(summary, encoding="utf-8") as fh:
+                text = fh.read()
+            self.assertIn("37 candidate(s) across 28 rule(s). **2 fail this check.**", text)
+            self.assertIn("rules.md#aemcs-012-apis-removed-on-31-march-2027", text)
+
+    def test_github_format_on_a_clean_project(self):
+        with tempfile.TemporaryDirectory() as root:
+            result = self.run_cli(root, "--format", "github", "--fail-on", "any")
+            self.assertEqual(result.returncode, 0)
+            self.assertNotIn("::", result.stdout)
+
+    def test_annotation_escaping(self):
+        self.assertEqual(scan.gh_escape("a,b:c%\nd", prop=True), "a%2Cb%3Ac%25%0Ad")
+        self.assertEqual(scan.gh_escape("a,b:c%\nd"), "a,b:c%25%0Ad")
+
+
 class PluginManifestTest(unittest.TestCase):
     def test_marketplace_points_at_the_skill(self):
         with open(os.path.join(REPO, ".claude-plugin", "marketplace.json"), encoding="utf-8") as fh:
@@ -230,6 +309,13 @@ class PluginManifestTest(unittest.TestCase):
         skill_dir = os.path.normpath(os.path.join(REPO, plugin["source"]))
         self.assertTrue(os.path.isfile(os.path.join(skill_dir, "SKILL.md")))
         self.assertEqual(plugin["version"], data["metadata"]["version"])
+
+    def test_action_runs_the_scanner(self):
+        with open(os.path.join(REPO, "action.yml"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("skills/aem-cloud-readiness/scripts/scan.py", text)
+        for option in ("--format github", "--rules", "--fail-on", "--path-prefix"):
+            self.assertIn(option, text)
 
 
 if __name__ == "__main__":
