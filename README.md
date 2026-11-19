@@ -105,7 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: karolisma/aem-cloud-readiness@v0.4.0
+      - uses: karolisma/aem-cloud-readiness@v0.4.1
         with:
           rules: deprecated-apis
           fail-on: deadline
