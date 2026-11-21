@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.3 (21 November 2026)
+
+- README: "Where it fits" now says when Adobe's `aemanalyser-maven-plugin` and `code-assessment` skill are the better choice, with a side-by-side run of both scanners on We.Retail and WKND. No change in behaviour.
+
 ## v0.4.2 (19 November 2026)
 
 - README opens with the two ways to use the project, the GitHub Action first. No change in behaviour.
