@@ -8,20 +8,20 @@
 
 | | What you get | Needs |
 | --- | --- | --- |
-| **[GitHub Action](#use-it-in-ci-github-action)** | A check on every pull request: deprecated API use and other blockers, marked on the affected lines. Can fail the build before Adobe's removal date does. | A GitHub workflow. Nothing else. |
+| **[GitHub Action](#use-it-in-ci-github-action)** | A quick check on every pull request: structure and configuration blockers and deprecated API use, marked on the affected lines. No build needed, so it also works on legacy 6.x code. | A GitHub workflow. Nothing else. |
 | **[Claude skill](#install-in-claude-code)** | A full assessment: every candidate read in context, an impact per finding, an effort estimate and a fix plan. | Claude Code |
 
 Both run the same scanner and the same 28 rules. The quickest start is the action:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: karolisma/aem-cloud-readiness@v0.4.2
+- uses: karolisma/aem-cloud-readiness@v0.4.3
   with:
     rules: deprecated-apis
     fail-on: deadline
 ```
 
-> Status: **v0.4.2.** 28 rules, checked against Adobe's documentation in November 2026. Feedback and issues are welcome.
+> Status: **v0.4.3.** 28 rules, checked against Adobe's documentation in November 2026. Feedback and issues are welcome.
 
 ## What it answers
 
@@ -34,13 +34,28 @@ The questions that come *before* a migration starts:
 
 ## Where it fits
 
-| Step | Tool |
-| --- | --- |
-| **1. Assess from the repo** (pre-sales, estimates, first look) | **This project** |
-| 2. Analyse a running instance | Adobe Best Practices Analyzer, Cloud Acceleration Manager |
-| 3. Fix the code, pattern by pattern | Adobe's [AEM Cloud Migration skill](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/migration-journey/cloud-migration-skill/using-cloud-migration-skill), Dispatcher Converter, AEM Modernization Tools |
+Adobe ships its own tools for this work, and for some jobs they are the better choice. Use the right one:
 
-Each finding names the Adobe skill pattern or tool that can fix it, where one exists, and the report ends with a fix plan: ready-to-run prompts for Adobe's skill, with the pattern and file paths filled in.
+| Your situation | Use |
+| --- | --- |
+| A legacy 6.x codebase that doesn't build against the Cloud SDK yet, and you need a first look, an estimate or a pre-sales assessment | **This project** |
+| Project structure and configuration: mixed packages, run modes, OSGi config formats, index naming, Dispatcher layout, custom logs | **This project** |
+| A quick check on pull requests, with no build and no setup | **This project** (the GitHub Action) |
+| Deprecated and removed APIs in a project that already builds against `aem-sdk-api` | Adobe's `aemanalyser-maven-plugin`, which is the same check Cloud Manager runs, and the [`code-assessment`](https://github.com/adobe/skills/tree/main/plugins/aem/cloud-service/skills/code-assessment) skill, which reads its rules from that plugin and fixes the code |
+| Code quality in a Cloud Service project: `@Inject` in Sling Models, outdated dependencies, HTTP timeouts, unbounded queries | Adobe's `code-assessment` skill |
+| A running instance: content, users, production indexes | Adobe Best Practices Analyzer, Cloud Acceleration Manager |
+| Fixing the code, pattern by pattern | Adobe's [AEM Cloud Migration skill](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/migration-journey/cloud-migration-skill/using-cloud-migration-skill), Dispatcher Converter, AEM Modernization Tools |
+
+On deprecated APIs, Adobe's analyser is the authority. This project's API rules are a list compiled from Adobe's documentation and matched against imports. That is useful where the analyser can't run yet, and as an early signal on a pull request. It is not a substitute once your build includes the analyser.
+
+The two overlap less than the names suggest. Run on the same two public projects in November 2026, Adobe's `code-assessment` scanner (v1.0.1, without its deprecated-API step, which needs a Maven build) and this scanner reported different things:
+
+| Project | Adobe's `code-assessment` scanner | This scanner |
+| --- | --- | --- |
+| We.Retail (legacy 6.x) | 6 findings: `@Inject` in Sling Models, an outdated dependency, a query index | 38 candidates, 10 verified findings: packaging, build setup, removed libraries, logging, configuration |
+| WKND (Cloud Service) | 9 findings: query indexes, outdated dependencies | 1 candidate, dismissed |
+
+Each finding in a report names the Adobe skill pattern or tool that can fix it, where one exists, and the report ends with a fix plan: ready-to-run prompts for Adobe's skill, with the pattern and file paths filled in.
 
 Tried on a real 6.5 codebase: the assessment flagged a JCR observation listener, and Adobe's skill (plugin `aem-cloud-service` 1.3.1, manual flow) migrated it from the file path alone, moving the heavy work into a Sling Job. It offered three approaches, and picking one took someone who knew the project. That review is the part no tool does for you.
 
@@ -111,9 +126,9 @@ python3 skills/aem-cloud-readiness/scripts/scan.py /path/to/aem-project
 
 ## Use it in CI: GitHub Action
 
-The scanner also runs as a GitHub Action, with no Claude involved. Use it to catch deprecated API use in pull requests before Adobe's removal date does it for you.
+The scanner also runs as a GitHub Action, with no Claude involved. It takes seconds, needs no build, and works on projects that don't compile against the Cloud SDK yet.
 
-Adobe removes another set of deprecated APIs on 31 March 2027. Cloud Manager pipelines that use them pause at Code Quality from December 2026 and fail from January 2027. This workflow fails a pull request that adds such code:
+Adobe removes another set of deprecated APIs on 31 March 2027. Cloud Manager pipelines that use them pause at Code Quality from December 2026 and fail from January 2027. This workflow gives an early signal on a pull request that adds such code:
 
 ```yaml
 name: AEM readiness
@@ -124,7 +139,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: karolisma/aem-cloud-readiness@v0.4.2
+      - uses: karolisma/aem-cloud-readiness@v0.4.3
         with:
           rules: deprecated-apis
           fail-on: deadline
@@ -142,7 +157,9 @@ Groups: `deadline` is APIs already removed plus the 31 March 2027 batch (AEMCS-0
 
 Outputs: `candidates` and `failing`, the two counts.
 
-Start with the default `fail-on: none` to see what a project has, then tighten. The scanner matches patterns and does not understand code, so a hit is a candidate to read, not a verdict. The API rules are the most reliable ones, because an import either is on Adobe's list or isn't.
+Start with the default `fail-on: none` to see what a project has, then tighten. The scanner matches patterns and does not understand code, so a hit is a candidate to read, not a verdict.
+
+If your Maven build already runs `aemanalyser-maven-plugin`, as projects from the current AEM Project Archetype do, that plugin is the authoritative check for deprecated APIs, and this action adds little on that point. It earns its place on legacy codebases, on repositories without the analyser, and for the structure and configuration rules the analyser doesn't cover.
 
 ## Try it on the test fixture
 
@@ -173,6 +190,7 @@ Two reports on public Adobe projects, so you can see the output before you run a
 - Scanner signals are heuristics. Claude verifies them, and you should too.
 - Rules were checked against Adobe's documentation on 15 November 2026. Adobe changes the platform often, so check the linked pages before you rely on a date or severity.
 - A repo-only assessment can't see content size, users, production indexes or integrations. Run BPA on a real instance for those.
+- The API rules are a list taken from Adobe's documentation. Adobe's `aemanalyser-maven-plugin` is the source of truth, so prefer it wherever your build can run it.
 - Not affiliated with or endorsed by Adobe or Anthropic.
 
 ## Author
